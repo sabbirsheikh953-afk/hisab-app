@@ -1,0 +1,16 @@
+{
+ "name": "দৈনিক হিসাব",
+ "short_name": "হিসাব",
+ "description": "দৈনিক আয়, খরচ, বাজার ও সঞ্চয়ের হিসাব",
+ "lang": "bn",
+ "start_url": "./index.html",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "portrait",
+ "background_color": "#14211c",
+ "theme_color": "#14211c",
+ "icons": [
+  {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+  {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+ ]
+}
