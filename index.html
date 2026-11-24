@@ -194,7 +194,8 @@ function setStatus(m){$('amsg').textContent=m}
 function ui(){$('acct').style.display=isOn()?'block':'none';$('acctIn').style.display=AU?'flex':'none';$('acctOut').style.display=AU?'none':'block';if(AU)$('who').textContent='✓ '+AU.email}
 function errMsg(j){var m=(j&&j.error&&j.error.message)||'',t={EMAIL_EXISTS:'এই ইমেইলে আগে অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।',INVALID_LOGIN_CREDENTIALS:'ইমেইল বা পাসওয়ার্ড ভুল।',EMAIL_NOT_FOUND:'এই ইমেইলে অ্যাকাউন্ট নেই।',INVALID_PASSWORD:'পাসওয়ার্ড ভুল।',INVALID_EMAIL:'ইমেইল ঠিক নয়।',MISSING_PASSWORD:'পাসওয়ার্ড দিন।',TOO_MANY_ATTEMPTS_TRY_LATER:'অনেকবার ভুল হয়েছে, পরে চেষ্টা করুন।',WEAK_PASSWORD:'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের দিন।'};
  for(var k in t)if(m.indexOf(k)===0)return t[k];
- return navigator.onLine?'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।':'ইন্টারনেট নেই। নেট চালু করে চেষ্টা করুন।'}
+ var raw=m||(j&&j.message)||String(j);
+ return (navigator.onLine?'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।':'ইন্টারনেট নেই। নেট চালু করে চেষ্টা করুন।')+' [কোড: '+raw+']'}
 function post(u,b){return fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j})})}
 function authCall(kind,em,pw){return post(IDU+kind+'?key='+CFG.apiKey,{email:em,password:pw,returnSecureToken:true}).then(function(j){setAuth({email:j.email,uid:j.localId,rt:j.refreshToken,it:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000});return pullPush()})}
 function token(){if(AU.exp>Date.now())return Promise.resolve(AU.it);
