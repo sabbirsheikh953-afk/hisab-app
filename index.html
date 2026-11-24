@@ -49,6 +49,9 @@ table{width:100%;border-collapse:collapse;font-size:.92rem}
 th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 th{color:var(--mute);font-weight:500}
+.lo{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:600}
+#acct input{margin-bottom:8px}
+
 .bk{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
 .bk button{flex:1;min-width:150px;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:10px;cursor:pointer;font-weight:600}
 #msg{color:var(--mute);font-size:.9rem;margin-top:8px;min-height:1.3em}
@@ -65,6 +68,14 @@ th{color:var(--mute);font-weight:500}
 
 <button id="inst" class="add" type="button" style="display:none;margin-bottom:14px">📲 ফোনে অ্যাপ হিসেবে ইনস্টল করুন</button>
 <p id="ios" class="note" style="display:none;margin:0 0 14px">iPhone-এ ইনস্টল করতে Safari-তে Share (⬆) চেপে “Add to Home Screen” বাছুন।</p>
+
+<div id="acct" class="box" style="display:none;margin-bottom:14px">
+ <div id="acctIn" style="display:none;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap"><span id="who"></span><button type="button" id="out" class="lo">লগআউট</button></div>
+ <div id="acctOut"><button type="button" id="openLogin" class="lo">🔐 লগইন / অ্যাকাউন্ট খুলুন</button>
+  <div id="lf" style="display:none;margin-top:10px"><input type="email" id="em" placeholder="ইমেইল" autocomplete="email"><input type="password" id="pw" placeholder="পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)" autocomplete="current-password">
+  <div class="seg" style="grid-template-columns:1fr 1fr"><button type="button" id="li">লগইন</button><button type="button" id="su">নতুন অ্যাকাউন্ট খুলুন</button></div>
+  <button type="button" id="fg" class="lo" style="border:0;background:none;text-decoration:underline">পাসওয়ার্ড ভুলে গেছি</button></div></div>
+ <div id="amsg" role="status" class="note" style="margin:6px 0 0"></div></div>
 
 <section class="sum" aria-label="মাসের সারাংশ">
   <div class="box"><small>আয়</small><b class="i" id="tInc">৳০</b></div>
@@ -116,7 +127,10 @@ sav:['ব্যাংক','ডিপিএস','সঞ্চয়পত্র',
 var KEY='hisab-entries-v1',type='inc',data=[];
 var $=function(id){return document.getElementById(id)};
 function load(){try{var r=localStorage.getItem(KEY);data=r?JSON.parse(r):[]}catch(e){data=[]}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
+function save(){var cur={};data.forEach(function(x){cur[x.id]=1});
+ Object.keys(prev).forEach(function(i){if(!cur[i]&&meta.del.indexOf(+i)<0)meta.del.push(+i)});
+ snap();meta.dirty=true;saveMeta();
+ try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}sync()}
 var bn='০১২৩৪৫৬৭৮৯';
 var MN=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
 function pad(n){return String(n).padStart(2,'0')}
@@ -165,7 +179,56 @@ $('list').addEventListener('click',function(e){var id=e.target.dataset&&e.target
  data=data.filter(function(x){return String(x.id)!==id});save();render()});
 $('preset').addEventListener('change',function(){if($('preset').value!=='custom')setPreset($('preset').value)});
 ['from','to'].forEach(function(id){$(id).addEventListener('change',function(){$('preset').value='custom';render()})});
-load();$('date').value=today();fillCats();setPreset('m');
+
+/* ===== লগইন ও ক্লাউড সিঙ্ক (Firebase REST) ===== */
+var CFG={apiKey:'AIzaSyA1McLJHthEE0N6o6vCdreUzuYTYDXWNuc',projectId:'hisab-95fa8'};
+var MK='hisab-meta-v1',AK='hisab-auth-v1',meta={del:[],dirty:false},prev={},AU=null,tm=null,busy=false;
+var IDU='https://identitytoolkit.googleapis.com/v1/accounts:';
+function isOn(){return !!(CFG.apiKey&&CFG.projectId)}
+function loadMeta(){try{meta=Object.assign({del:[],dirty:false},JSON.parse(localStorage.getItem(MK)||'{}'))}catch(e){}}
+function saveMeta(){try{localStorage.setItem(MK,JSON.stringify(meta))}catch(e){}}
+function snap(){prev={};data.forEach(function(x){prev[x.id]=1})}
+function loadAuth(){try{AU=JSON.parse(localStorage.getItem(AK)||'null')}catch(e){AU=null}}
+function setAuth(a){AU=a;try{a?localStorage.setItem(AK,JSON.stringify(a)):localStorage.removeItem(AK)}catch(e){}ui()}
+function setStatus(m){$('amsg').textContent=m}
+function ui(){$('acct').style.display=isOn()?'block':'none';$('acctIn').style.display=AU?'flex':'none';$('acctOut').style.display=AU?'none':'block';if(AU)$('who').textContent='✓ '+AU.email}
+function errMsg(j){var m=(j&&j.error&&j.error.message)||'',t={EMAIL_EXISTS:'এই ইমেইলে আগে অ্যাকাউন্ট খোলা হয়েছে। লগইন করুন।',INVALID_LOGIN_CREDENTIALS:'ইমেইল বা পাসওয়ার্ড ভুল।',EMAIL_NOT_FOUND:'এই ইমেইলে অ্যাকাউন্ট নেই।',INVALID_PASSWORD:'পাসওয়ার্ড ভুল।',INVALID_EMAIL:'ইমেইল ঠিক নয়।',MISSING_PASSWORD:'পাসওয়ার্ড দিন।',TOO_MANY_ATTEMPTS_TRY_LATER:'অনেকবার ভুল হয়েছে, পরে চেষ্টা করুন।',WEAK_PASSWORD:'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের দিন।'};
+ for(var k in t)if(m.indexOf(k)===0)return t[k];
+ return navigator.onLine?'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।':'ইন্টারনেট নেই। নেট চালু করে চেষ্টা করুন।'}
+function post(u,b){return fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j})})}
+function authCall(kind,em,pw){return post(IDU+kind+'?key='+CFG.apiKey,{email:em,password:pw,returnSecureToken:true}).then(function(j){setAuth({email:j.email,uid:j.localId,rt:j.refreshToken,it:j.idToken,exp:Date.now()+(+j.expiresIn-60)*1000});return pullPush()})}
+function token(){if(AU.exp>Date.now())return Promise.resolve(AU.it);
+ return fetch('https://securetoken.googleapis.com/v1/token?key='+CFG.apiKey,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(AU.rt)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;AU.it=j.id_token;AU.rt=j.refresh_token;AU.exp=Date.now()+(+j.expires_in-60)*1000;setAuth(AU);return AU.it})})}
+function docUrl(){return 'https://firestore.googleapis.com/v1/projects/'+CFG.projectId+'/databases/(default)/documents/users/'+AU.uid}
+function pullPush(){if(!isOn()||!AU||!navigator.onLine)return Promise.resolve();
+ setStatus('সিঙ্ক হচ্ছে…');
+ return token().then(function(t){var H={Authorization:'Bearer '+t};
+  return fetch(docUrl(),{headers:H}).then(function(r){if(r.status===404)return {e:[],del:[]};
+   return r.json().then(function(j){if(!r.ok)throw j;try{return JSON.parse(j.fields.data.stringValue)}catch(x){return {e:[],del:[]}}})})
+  .then(function(cloud){var dels={},map={};(cloud.del||[]).concat(meta.del).forEach(function(i){dels[i]=1});
+   (cloud.e||[]).concat(data).forEach(function(x){if(!dels[x.id])map[x.id]=x});
+   data=Object.keys(map).map(function(k){return map[k]});
+   try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}
+   meta.del=Object.keys(dels).map(Number);snap();
+   return fetch(docUrl()+'?updateMask.fieldPaths=data',{method:'PATCH',headers:{Authorization:H.Authorization,'Content-Type':'application/json'},body:JSON.stringify({fields:{data:{stringValue:JSON.stringify({e:data,del:meta.del})}}})})
+   .then(function(r){if(!r.ok)throw 0;meta.dirty=false;saveMeta();render();setStatus('সিঙ্ক হয়েছে ✓')})})})
+ .catch(function(){setStatus('সিঙ্ক হয়নি। ইন্টারনেট এলে আবার চেষ্টা হবে।')})}
+function sync(){if(!AU||!isOn())return;clearTimeout(tm);tm=setTimeout(function(){if(busy)return;busy=true;pullPush().then(function(){busy=false})},1500)}
+function doAuth(kind){var e=$('em').value.trim(),p=$('pw').value;if(!e||!p){setStatus('ইমেইল ও পাসওয়ার্ড দিন।');return}
+ setStatus('অপেক্ষা করুন…');authCall(kind,e,p).then(function(){$('pw').value='';$('lf').style.display='none'}).catch(function(j){setStatus(errMsg(j))})}
+$('openLogin').addEventListener('click',function(){var f=$('lf');f.style.display=f.style.display==='none'?'block':'none'});
+$('li').addEventListener('click',function(){doAuth('signInWithPassword')});
+$('su').addEventListener('click',function(){doAuth('signUp')});
+$('fg').addEventListener('click',function(){var e=$('em').value.trim();if(!e){setStatus('আগে ইমেইল লিখুন।');return}
+ post(IDU+'sendOobCode?key='+CFG.apiKey,{requestType:'PASSWORD_RESET',email:e}).then(function(){setStatus('পাসওয়ার্ড বদলানোর লিংক ইমেইলে পাঠানো হয়েছে (স্প্যাম ফোল্ডারও দেখুন)।')}).catch(function(j){setStatus(errMsg(j))})});
+$('out').addEventListener('click',function(){
+ var m='লগআউট করলে এই ফোন থেকে হিসাব মুছে যাবে। হিসাব আপনার অ্যাকাউন্টে নিরাপদ থাকবে। লগআউট করবেন?';
+ if(meta.dirty)m='সতর্কতা: কিছু হিসাব এখনও ক্লাউডে সিঙ্ক হয়নি, লগআউট করলে সেগুলো হারাবে। আগে ইন্টারনেট চালু করে সিঙ্ক হতে দিন। তবু লগআউট করবেন?';
+ if(!confirm(m))return;
+ data=[];meta={del:[],dirty:false};saveMeta();snap();try{localStorage.setItem(KEY,'[]')}catch(e){}
+ setAuth(null);setStatus('');render()});
+window.addEventListener('online',sync);
+load();loadMeta();snap();loadAuth();$('date').value=today();fillCats();setPreset('m');ui();if(AU)sync();
 $('exp').addEventListener('click',function(){
  try{var b=new Blob([JSON.stringify({app:'hisab',v:1,data:data})],{type:'application/json'}),a=document.createElement('a');
  a.href=URL.createObjectURL(b);a.download='hisab-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();
